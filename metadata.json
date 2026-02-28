@@ -1,0 +1,5 @@
+{
+  "name": "AirAware",
+  "description": "A modern air pollution monitoring platform for personal health and environmental awareness.",
+  "requestFramePermissions": ["geolocation"]
+}

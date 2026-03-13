@@ -22,3 +22,7 @@ https://ai.studio/apps/b067ba2f-56f9-4e91-abdc-522e9619d4b3
 ## Demo Video
 AirAware prototype demo YouTube video link
 https://youtu.be/EDCYBX9wbtA?si=Ckxc0CyS2pUwdeRJ 
+
+## Report AirAware
+[Esther Phang Xin Ru_AirAware_Report.pdf](https://github.com/user-attachments/files/25968252/Esther.Phang.Xin.Ru_AirAware_Report.pdf)
+

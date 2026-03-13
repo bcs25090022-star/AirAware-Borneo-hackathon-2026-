@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive AQI Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; }
+        #map { height: 100%; width: 100%; z-index: 1; }
+        
+        /* Search Bar Styles */
+        .search-container {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 100px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .search-container:focus-within {
+            background: rgba(255, 255, 255, 0.9);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+            width: 95%;
+        }
+
+        .back-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            color: #1e293b;
+            flex-shrink: 0;
+        }
+
+        .search-input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            outline: none;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 15px;
+            color: #1e293b;
+            font-weight: 500;
+        }
+
+        .search-input::placeholder {
+            color: #64748b;
+        }
+
+        .aqi-marker {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: 3px solid white;
+            color: white;
+            font-weight: 900;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 13px;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .aqi-marker:hover {
+            transform: scale(1.2);
+            z-index: 1000;
+        }
+
+        .legend {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            padding: 16px;
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            margin: 20px !important;
+            max-width: calc(100vw - 40px);
+        }
+        
+        .legend-title {
+            font-weight: 900;
+            margin-bottom: 12px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #64748b;
+        }
+
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px 16px;
+        }
+
+        .legend-item { display: flex; align-items: center; }
+        .legend-dot { width: 12px; height: 12px; border-radius: 50%; margin-right: 10px; flex-shrink: 0; }
+        .legend-label { font-weight: 700; font-size: 11px; text-transform: uppercase; }
+        
+        @media (max-width: 480px) {
+            .legend-grid { grid-template-columns: 1fr; }
+            .search-container { top: 15px; }
+            .legend { padding: 12px; margin: 10px !important; }
+        }
+
+        .custom-popup .leaflet-popup-content-wrapper { 
+            border-radius: 24px; 
+            padding: 12px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .popup-title { 
+            font-weight: 900; 
+            margin-bottom: 8px; 
+            color: #1e293b; 
+            font-size: 16px;
+            letter-spacing: -0.5px;
+        }
+
+        .popup-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 24px;
+            margin-bottom: 6px;
+            font-size: 13px;
+        }
+
+        .popup-label { color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 10px; letter-spacing: 0.5px; }
+        .popup-value { color: #1e293b; font-weight: 800; }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            color: white;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="search-container">
+        <button class="back-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="19" y1="12" x2="5" y2="12"></line>
+                <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+        </button>
+        <input type="text" class="search-input" placeholder="Enter the location you are looking for">
+    </div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([3.1390, 101.6869], 11);
+
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19
+        }).addTo(map);
+
+        const markers = [
+            { lat: 3.1390, lng: 101.6869, aqi: 45, location: 'KL City Centre', status: 'Good', color: '#22C55E' },
+            { lat: 3.1200, lng: 101.6600, aqi: 68, location: 'Bangsar', status: 'Moderate', color: '#EAB308' },
+            { lat: 3.1500, lng: 101.7100, aqi: 112, location: 'Ampang', status: 'Sensitive', color: '#F97316' },
+            { lat: 3.0700, lng: 101.6000, aqi: 155, location: 'Subang Jaya', status: 'Unhealthy', color: '#EF4444' },
+            { lat: 3.1800, lng: 101.6200, aqi: 32, location: 'Kepong', status: 'Good', color: '#22C55E' }
+        ];
+
+        markers.forEach(m => {
+            const icon = L.divIcon({
+                className: '',
+                html: `<div class="aqi-marker" style="background-color: ${m.color}">${m.aqi}</div>`,
+                iconSize: [36, 36],
+                iconAnchor: [18, 18]
+            });
+
+            L.marker([m.lat, m.lng], { icon: icon })
+                .addTo(map)
+                .bindPopup(`
+                    <div class="custom-popup">
+                        <div class="popup-title">${m.location}</div>
+                        <div class="popup-row">
+                            <span class="popup-label">AQI Level</span>
+                            <span class="popup-value">${m.aqi}</span>
+                        </div>
+                        <div class="popup-row">
+                            <span class="popup-label">Status</span>
+                            <span class="status-badge" style="background-color: ${m.color}">${m.status}</span>
+                        </div>
+                    </div>
+                `, { closeButton: false, offset: [0, -10] });
+        });
+
+        const legend = L.control({ position: 'bottomright' });
+        legend.onAdd = function() {
+            const div = L.DomUtil.create('div', 'legend');
+            div.innerHTML = `
+                <div class="legend-title">AQI Legend</div>
+                <div class="legend-grid">
+                    <div class="legend-item"><div class="legend-dot" style="background: #22C55E"></div><div class="legend-label">GOOD</div></div>
+                    <div class="legend-item"><div class="legend-dot" style="background: #EAB308"></div><div class="legend-label">MODERATE</div></div>
+                    <div class="legend-item"><div class="legend-dot" style="background: #F97316"></div><div class="legend-label">SENSITIVE</div></div>
+                    <div class="legend-item"><div class="legend-dot" style="background: #EF4444"></div><div class="legend-label">UNHEALTHY</div></div>
+                </div>
+            `;
+            return div;
+        };
+        legend.addTo(map);
+    </script>
+</body>
+</html>
